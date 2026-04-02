@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { View, Image, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { pickImage } from '../utils/imagePicker';
-import { saveImage, getImage } from '../services/storage';
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { getImage, saveImage } from "@/src/services/storage";
+import { pickImage } from "@/src/utils/imagePicker";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function ProfileImage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -36,7 +44,11 @@ export default function ProfileImage() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={handlePickImage} activeOpacity={0.8} style={styles.imageWrapper}>
+      <TouchableOpacity
+        onPress={handlePickImage}
+        activeOpacity={0.8}
+        style={styles.imageWrapper}
+      >
         {loading ? (
           <ActivityIndicator color="#E91E63" />
         ) : imageUri ? (
@@ -54,7 +66,7 @@ export default function ProfileImage() {
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 20,
   },
   imageWrapper: {
@@ -62,29 +74,29 @@ const styles = StyleSheet.create({
     height: 130,
     borderRadius: 65,
     borderWidth: 3,
-    borderColor: '#E91E63',
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    shadowColor: '#000',
+    borderColor: "#E91E63",
+    backgroundColor: "#F5F5F5",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 3,
   },
   image: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   placeholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   placeholderText: {
-    color: '#888',
+    color: "#888",
     marginTop: 4,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

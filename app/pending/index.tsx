@@ -1,199 +1,205 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, SafeAreaView } from 'react-native';
-import { useRouter } from 'expo-router';
+/**
+ * index.tsx  —  Request Status Screen (Pending / Approved / Rejected)
+ *
+ * Polls GET /profile every 5 seconds using the stored auth token.
+ * - approved → navigates to /home
+ * - rejected → shows rejection message with option to re-register
+ * - pending  → shows spinner
+ */
+import { getUserProfile } from "@/src/services/api";
+import { clearAllUserData, getAuthToken } from "@/src/services/storage";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-// Step 3: Define Status States
-type StatusType = 'pending' | 'approved' | 'rejected';
+import { SafeAreaView } from "react-native-safe-area-context";
+
+type StatusType = "pending" | "approved" | "rejected";
+
+const POLL_INTERVAL_MS = 50000; // poll every 5 m
 
 export default function PendingScreen() {
-  const [status, setStatus] = useState<StatusType>('pending');
   const router = useRouter();
+  const [status, setStatus] = useState<StatusType>("pending");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /**
-   * Step 5: Dummy Simulation
-   * Simulate a backend response randomly flipping the status after 3 seconds.
-   */
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
+  // ── Polling logic ────────────────────────────────────────────────────────
+  const checkStatus = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        // No token means the user isn't authenticated — send back to register
+        router.replace("/register");
+        return;
+      }
 
-    if (status === 'pending') {
-      timeout = setTimeout(() => {
-        // 50% chance of approval vs rejection using Math.random()
-        const random = Math.random();
-        const nextStatus = random > 0.5 ? 'approved' : 'rejected';
-        setStatus(nextStatus);
-      }, 3500); // Wait 3.5 seconds
+      const user = await getUserProfile(token);
+
+      if (user.status === "approved" || user.status === "rejected") {
+        setStatus(user.status);
+        // Stop polling once a final state is reached
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      }
+      // if still pending, do nothing — interval will re-check
+    } catch (err: any) {
+      console.error("Status check failed:", err);
+      // Don't crash the screen on a transient network error — just wait
     }
+  }, [router]);
+
+  useEffect(() => {
+    // Immediate first check
+    checkStatus();
+
+    // Then poll
+    intervalRef.current = setInterval(checkStatus, POLL_INTERVAL_MS);
 
     return () => {
-      if (timeout) clearTimeout(timeout);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [status]);
+  }, [checkStatus]);
 
-  /**
-   * Step 6: Navigation Logic
-   * Whenever status updates to approved/rejected, route the user accordingly.
-   */
+  // ── Navigation side-effects ──────────────────────────────────────────────
   useEffect(() => {
-    // Adding a small visual delay so the user can actually read the "Approved/Rejected" screen
-    // before the router violently yanks them away.
-    if (status === 'approved') {
-      const t = setTimeout(() => router.replace('/home'), 1500);
-      return () => clearTimeout(t);
-    } else if (status === 'rejected') {
-      const t = setTimeout(() => router.replace('/register'), 1500);
+    if (status === "approved") {
+      // Small visual delay so the user sees "Approved" before navigating
+      const t = setTimeout(() => router.replace("/"), 1500);
       return () => clearTimeout(t);
     }
   }, [status, router]);
 
-  /**
-   * Step 4: Dynamic UI Based on Status
-   * Extracted into a helper for clean React render output
-   */
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleRegisterAgain = async () => {
+    await clearAllUserData();
+    router.replace("/register");
+  };
+
+  // ── Status config ────────────────────────────────────────────────────────
   const getStatusContent = () => {
     switch (status) {
-      case 'approved':
+      case "approved":
         return {
-          title: 'Approved',
-          subtext: 'You can now access the app',
-          color: '#4CAF50', // Step 7: Green
+          emoji: "✅",
+          title: "Approved!",
+          subtext: "Taking you to the app…",
+          color: "#4CAF50",
+          bgColor: "#F1FBF4",
         };
-      case 'rejected':
+      case "rejected":
         return {
-          title: 'Rejected',
-          subtext: 'Please register again',
-          color: '#F44336', // Step 7: Red
+          emoji: "❌",
+          title: "Not Approved",
+          subtext:
+            "Your registration was not approved by the admin. You can try registering again with different details.",
+          color: "#F44336",
+          bgColor: "#FFF5F5",
         };
-      case 'pending':
+      case "pending":
       default:
         return {
-          title: 'Pending',
-          subtext: 'Waiting for admin approval...',
-          color: '#FFB300', // Step 7: Yellow
+          emoji: null,
+          title: "Awaiting Approval",
+          subtext: "Your account is being reviewed by our admin team.",
+          color: "#E91E63",
+          bgColor: "#FFF0F5",
         };
     }
   };
 
   const content = getStatusContent();
 
+  // ── UI ───────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* Step 2: Centered Layout */}
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: content.bgColor }]}
+    >
       <View style={styles.container}>
-        
-        <View style={styles.contentContainer}>
-          {/* Step 7: Activity Indicator for pending status */}
-          {status === 'pending' && (
-            <ActivityIndicator size="large" color={content.color} style={styles.spinner} />
+        {/* Icon / Spinner */}
+        <View style={styles.iconBlock}>
+          {status === "pending" && (
+            <Text style={styles.emoji}>{content.emoji}</Text>
           )}
-
-          <Text style={[styles.title, { color: content.color }]}>{content.title}</Text>
-          <Text style={styles.subtext}>{content.subtext}</Text>
         </View>
 
-        {/* Step 8: Optional Buttons (for manual testing) */}
-        <View style={styles.buttonContainer}>
-          <Text style={styles.testModeText}>Testing Panel</Text>
-          
-          <View style={styles.row}>
-            <TouchableOpacity 
-              style={[styles.testButton, { backgroundColor: '#FFB300' }]} 
-              onPress={() => setStatus('pending')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.testButtonText}>Set Pending</Text>
-            </TouchableOpacity>
+        {/* Text */}
+        <Text style={[styles.title, { color: content.color }]}>
+          {content.title}
+        </Text>
+        <Text style={styles.subtext}>{content.subtext}</Text>
 
-            <TouchableOpacity 
-              style={[styles.testButton, { backgroundColor: '#4CAF50' }]} 
-              onPress={() => setStatus('approved')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.testButtonText}>Set Approved</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.testButton, { backgroundColor: '#F44336' }]} 
-              onPress={() => setStatus('rejected')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.testButtonText}>Set Rejected</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Action button for rejected state */}
+        {status === "rejected" && (
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={handleRegisterAgain}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.retryButtonText}>Register Again</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
 }
 
-// Step 9: Proper Styling
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
   },
   container: {
     flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 36,
   },
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center', // Centers content vertically
-    alignItems: 'center',     // Centers content horizontally
+  iconBlock: {
+    marginBottom: 32,
+    height: 80,
+    justifyContent: "center",
+    alignItems: "center",
   },
   spinner: {
-    marginBottom: 24,
-    transform: [{ scale: 1.3 }], // Slight pop in size
+    transform: [{ scale: 1.4 }],
+  },
+  emoji: {
+    fontSize: 64,
   },
   title: {
-    fontSize: 42,
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontWeight: "800",
+    textAlign: "center",
     marginBottom: 16,
-    textAlign: 'center',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   subtext: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-    fontWeight: '500',
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 26,
+    maxWidth: 300,
   },
-  buttonContainer: {
-    width: '100%',
-    paddingTop: 30,
-    paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#EEE',
+  pollingHint: {
+    marginTop: 28,
+    fontSize: 13,
+    color: "#BBBBBB",
+    letterSpacing: 0.3,
   },
-  testModeText: {
-    textAlign: 'center',
-    color: '#999',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
+  retryButton: {
+    marginTop: 40,
+    backgroundColor: "#E91E63",
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    shadowColor: "#E91E63",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 12, // Native spacing for react-native
-  },
-  testButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    elevation: 3, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-  },
-  testButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 14,
+  retryButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
