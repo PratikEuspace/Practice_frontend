@@ -107,11 +107,12 @@ export default function RegisterScreen() {
         photoUri,
       });
 
-      // Save basic info locally so the pending screen can show their name
-      await saveUserData({ username: name, email, mobile });
+      // Persist minimal user info (email) for quick access
+      await saveUserData({ username: response.user.name || "", email });
 
-      router.replace("/");
-    } catch (err) {
+      // Move to Step 2: profile setup
+      router.push("/profile-setup" as any);
+    } catch (err: any) {
       console.error("Registration failed:", err);
 
       Alert.alert(
