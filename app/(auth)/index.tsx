@@ -108,11 +108,11 @@ export default function RegisterScreen() {
       });
 
       // Persist minimal user info (email) for quick access
-      await saveUserData({ username: response.user.name || "", email });
+      await saveUserData({ username: name, email, mobile });
 
       // Move to Step 2: profile setup
-      router.push("/profile-setup" as any);
-    } catch (err: any) {
+      router.replace("/(pending)");
+    } catch (err) {
       console.error("Registration failed:", err);
 
       Alert.alert(
