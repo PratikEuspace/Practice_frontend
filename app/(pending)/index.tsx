@@ -31,7 +31,7 @@ export default function PendingScreen() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleGoToLogin = () => {
-    router.replace("/");
+    router.replace("/(auth)/login");
   };
 
   const handleRegisterAgain = async () => {
@@ -44,12 +44,12 @@ export default function PendingScreen() {
     switch (status) {
       case "approved":
         return {
-          emoji: "✅",
-          title: "Approved!",
+          emoji: "⏳",
+          title: "Pending Approval",
           subtext:
-            "Your account has been approved by the admin. You can now log in.",
-          color: "#4CAF50",
-          bgColor: "#F1FBF4",
+            "Your account is currently under review by the admin. Please wait for approval.",
+          color: "#FFA500",
+          bgColor: "#FFF3E0",
         };
       case "rejected":
         return {
@@ -107,7 +107,7 @@ export default function PendingScreen() {
         {/* Approved → Go to Login */}
         {status === "approved" && (
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: "#4CAF50" }]}
+            style={[styles.actionButton, { backgroundColor: "#FFA500" }]}
             onPress={handleGoToLogin}
             activeOpacity={0.8}
           >
