@@ -1,27 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ---------------------------------------------------------------------------
-// Keys
-// ---------------------------------------------------------------------------
 const IMAGE_KEY = "user_profile_image";
 const USER_DATA_KEY = "@user_profile_data";
 const AUTH_TOKEN_KEY = "@auth_token";
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-export interface UserData {
-  username: string;
-  email?: string;
-  password?: string;
-}
-
-// ---------------------------------------------------------------------------
 // Profile Image
 // ---------------------------------------------------------------------------
 
-/** Persist the local URI of the user's chosen profile photo. */
-export const saveImage = async (uri: string): Promise<boolean> => {
+export const saveImage = async (uri) => {
   try {
     await AsyncStorage.setItem(IMAGE_KEY, uri);
     return true;
@@ -31,8 +18,7 @@ export const saveImage = async (uri: string): Promise<boolean> => {
   }
 };
 
-/** Retrieve the stored profile photo URI. Returns null if none saved. */
-export const getImage = async (): Promise<string | null> => {
+export const getImage = async () => {
   try {
     return await AsyncStorage.getItem(IMAGE_KEY);
   } catch (e) {
@@ -41,8 +27,7 @@ export const getImage = async (): Promise<string | null> => {
   }
 };
 
-/** Remove the stored profile photo (e.g. on logout). */
-export const clearImage = async (): Promise<boolean> => {
+export const clearImage = async () => {
   try {
     await AsyncStorage.removeItem(IMAGE_KEY);
     return true;
@@ -53,11 +38,10 @@ export const clearImage = async (): Promise<boolean> => {
 };
 
 // ---------------------------------------------------------------------------
-// User Data (name, email, etc.)
+// User Data  { username, email, mobile }
 // ---------------------------------------------------------------------------
 
-/** Persist basic user profile data locally for quick UI access. */
-export const saveUserData = async (data: UserData): Promise<boolean> => {
+export const saveUserData = async (data) => {
   try {
     await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(data));
     return true;
@@ -67,8 +51,7 @@ export const saveUserData = async (data: UserData): Promise<boolean> => {
   }
 };
 
-/** Retrieve locally stored user profile data. */
-export const getUserData = async (): Promise<UserData | null> => {
+export const getUserData = async () => {
   try {
     const json = await AsyncStorage.getItem(USER_DATA_KEY);
     return json != null ? JSON.parse(json) : null;
@@ -78,8 +61,7 @@ export const getUserData = async (): Promise<UserData | null> => {
   }
 };
 
-/** Remove locally stored user profile data (e.g. on logout). */
-export const clearUserData = async (): Promise<boolean> => {
+export const clearUserData = async () => {
   try {
     await AsyncStorage.removeItem(USER_DATA_KEY);
     return true;
@@ -93,8 +75,7 @@ export const clearUserData = async (): Promise<boolean> => {
 // Auth Token
 // ---------------------------------------------------------------------------
 
-/** Persist the JWT / session token returned by the backend after login. */
-export const saveAuthToken = async (token: string): Promise<boolean> => {
+export const saveAuthToken = async (token) => {
   try {
     await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
     return true;
@@ -104,8 +85,7 @@ export const saveAuthToken = async (token: string): Promise<boolean> => {
   }
 };
 
-/** Retrieve the stored auth token. Returns null if the user is not logged in. */
-export const getAuthToken = async (): Promise<string | null> => {
+export const getAuthToken = async () => {
   try {
     return await AsyncStorage.getItem(AUTH_TOKEN_KEY);
   } catch (e) {
@@ -114,8 +94,7 @@ export const getAuthToken = async (): Promise<string | null> => {
   }
 };
 
-/** Remove the auth token (call on logout). */
-export const clearAuthToken = async (): Promise<boolean> => {
+export const clearAuthToken = async () => {
   try {
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     return true;
@@ -126,8 +105,8 @@ export const clearAuthToken = async (): Promise<boolean> => {
 };
 
 // ---------------------------------------------------------------------------
-// Full Logout Helper — clears everything at once
+// Full logout — clears everything at once
 // ---------------------------------------------------------------------------
-export const clearAllUserData = async (): Promise<void> => {
+export const clearAllUserData = async () => {
   await Promise.all([clearImage(), clearUserData(), clearAuthToken()]);
 };

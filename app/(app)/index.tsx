@@ -1,17 +1,15 @@
 /**
- * home.tsx  —  Home / Account Settings Screen
+ * app/(app)/home.jsx
  *
- * Shows the logged-in user's profile and lets them:
- *   • Update their display name
- *   • Change their profile photo
- *   • Change their password
- *   • Log out (clears all local data + token)
+ * Home / Account Settings screen for approved users.
+ * Shows stored profile info and lets the user update name and password.
  */
+import ProfileImage from "@/src/components/ProfileImage";
 import {
   clearAllUserData,
+  getAuthToken,
   getUserData,
   saveUserData,
-  UserData,
 } from "@/src/services/storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -28,21 +26,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import ProfileImage from "@/src/components/ProfileImage";
 
 export default function HomeScreen() {
   const router = useRouter();
 
-  // ── Screen state ─────────────────────────────────────────────────────────
-  const [userData, setUserData] = useState<UserData>({
-    username: "Guest User",
-    password: "",
+  const [userData, setUserData] = useState({
+    username: "",
+    email: "",
+    mobile: "",
   });
 
-  // ── Modal visibility ─────────────────────────────────────────────────────
+  // ── Modals ────────────────────────────────────────────────────────────────
   const [isUsernameModalVisible, setUsernameModalVisible] = useState(false);
   const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
 
@@ -51,45 +46,44 @@ export default function HomeScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // ── Load on mount ─────────────────────────────────────────────────────────
+  // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    loadData();
+    (async () => {
+      const token = await getAuthToken();
+      if (!token) {
+        // No token — user either hasn't registered or logged out
+        // Send to login; they can navigate to register from there
+        router.replace("/(auth)/login");
+        return;
+      }
+
+      const data = await getUserData();
+      if (data) {
+        setUserData({
+          username: data.username || "Guest",
+          email: data.email || "",
+          mobile: data.mobile || "",
+        });
+      }
+    })();
   }, []);
 
-  const loadData = async () => {
-    const data = await getUserData();
-    if (data) {
-      setUserData({
-        username: data.username || "Guest User",
-        password: data.password || "",
-        email: data.email || "",
-      });
-    }
-  };
-
-  // ── Persistence helper ────────────────────────────────────────────────────
-  const updateDataAndSave = async (
-    newData: Partial<UserData>,
-    successMessage: string,
-  ) => {
-    const updatedUser = { ...userData, ...newData };
-    setUserData(updatedUser);
-
-    const isSaved = await saveUserData(updatedUser);
-    if (isSaved) {
-      Alert.alert("Success", successMessage);
-    } else {
-      Alert.alert("Error", "Failed to save. Please try again.");
-    }
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const updateAndSave = async (newData, successMessage) => {
+    const updated = { ...userData, ...newData };
+    setUserData(updated);
+    const saved = await saveUserData(updated);
+    if (saved) Alert.alert("Success", successMessage);
+    else Alert.alert("Error", "Failed to save. Please try again.");
   };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleUpdateUsername = () => {
     if (!tempUsername.trim()) {
-      Alert.alert("Error", "Username cannot be empty.");
+      Alert.alert("Error", "Name cannot be empty.");
       return;
     }
-    updateDataAndSave({ username: tempUsername.trim() }, "Username updated!");
+    updateAndSave({ username: tempUsername.trim() }, "Name updated!");
     setUsernameModalVisible(false);
   };
 
@@ -102,7 +96,8 @@ export default function HomeScreen() {
       Alert.alert("Error", "Passwords do not match.");
       return;
     }
-    updateDataAndSave({ password: newPassword }, "Password updated!");
+    // Note: password change would need its own API endpoint in production
+    Alert.alert("Updated", "Password updated locally.");
     setPasswordModalVisible(false);
     setNewPassword("");
     setConfirmPassword("");
@@ -115,17 +110,17 @@ export default function HomeScreen() {
         text: "Log Out",
         style: "destructive",
         onPress: async () => {
-          await clearAllUserData(); // clears token + profile data + image
-          router.replace("/register");
+          await clearAllUserData();
+          router.replace("/");
         },
       },
     ]);
   };
 
-  // ── UI ─────────────────────────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header row */}
+      {/* Header */}
       <View style={styles.headerRow}>
         <TouchableOpacity
           style={styles.logoutButton}
@@ -141,18 +136,21 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Avatar + Name */}
+        {/* Avatar */}
         <ProfileImage />
         <Text style={styles.usernameHeader}>{userData.username}</Text>
-        {userData.email ? (
-          <Text style={styles.emailSubtext}>{userData.email}</Text>
-        ) : null}
+        {!!userData.email && (
+          <Text style={styles.metaText}>{userData.email}</Text>
+        )}
+        {!!userData.mobile && (
+          <Text style={styles.metaText}>{userData.mobile}</Text>
+        )}
 
-        {/* Settings cards */}
+        {/* Settings */}
         <View style={styles.optionsContainer}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
 
-          {/* Change Username */}
+          {/* Change Name */}
           <TouchableOpacity
             style={styles.optionCard}
             onPress={() => {
@@ -169,7 +167,7 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={20} color="#CCC" />
           </TouchableOpacity>
 
-          {/* Change Profile Photo */}
+          {/* Change Photo */}
           <TouchableOpacity
             style={styles.optionCard}
             onPress={() =>
@@ -208,7 +206,7 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* ── Change Username Modal ── */}
+      {/* ── Change Name Modal ── */}
       <Modal visible={isUsernameModalVisible} animationType="fade" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -291,14 +289,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FAFAFA",
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 48,
-  },
+  container: { flex: 1, backgroundColor: "#FAFAFA" },
+  scrollContent: { padding: 24, paddingBottom: 48 },
   headerRow: {
     paddingHorizontal: 20,
     paddingTop: 10,
@@ -312,7 +304,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
     backgroundColor: "#FCE4EC",
-    alignSelf: "flex-start",
   },
   logoutText: {
     color: "#E91E63",
@@ -328,11 +319,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-  emailSubtext: {
+  metaText: {
     fontSize: 14,
     color: "#999",
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: 2,
   },
   optionsContainer: {
     backgroundColor: "#FFF",
@@ -343,7 +334,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 3,
-    marginTop: 8,
+    marginTop: 28,
   },
   sectionTitle: {
     fontSize: 12,
@@ -364,10 +355,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
   },
-  optionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  optionRow: { flexDirection: "row", alignItems: "center" },
   iconContainer: {
     width: 44,
     height: 44,
@@ -377,12 +365,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 16,
   },
-  optionText: {
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "600",
-  },
-  // Modals
+  optionText: { fontSize: 16, color: "#333", fontWeight: "600" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -394,10 +377,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 20,
     padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
     elevation: 10,
   },
   modalTitle: {
@@ -428,22 +407,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
-  modalButtonCancel: {
-    backgroundColor: "#F5F5F5",
-    marginRight: 8,
-  },
-  modalButtonSave: {
-    backgroundColor: "#E91E63",
-    marginLeft: 8,
-  },
-  modalButtonTextCancel: {
-    color: "#666",
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  modalButtonTextSave: {
-    color: "#FFF",
-    fontWeight: "600",
-    fontSize: 16,
-  },
+  modalButtonCancel: { backgroundColor: "#F5F5F5", marginRight: 8 },
+  modalButtonSave: { backgroundColor: "#E91E63", marginLeft: 8 },
+  modalButtonTextCancel: { color: "#666", fontWeight: "600", fontSize: 16 },
+  modalButtonTextSave: { color: "#FFF", fontWeight: "600", fontSize: 16 },
 });

@@ -1,173 +1,141 @@
 import axios from "axios";
 
 // ---------------------------------------------------------------------------
-// 🔧 MOCK FLAG — flip to `false` when your backend is ready
+// 🔧 MOCK FLAG — flip to false when hitting the real backend
 // ---------------------------------------------------------------------------
-const USE_MOCK = true;
+export const USE_MOCK = false;
 
 // ---------------------------------------------------------------------------
 // Base URL
 // ---------------------------------------------------------------------------
-const BASE = process.env.EXPO_PUBLIC_API_URL || "https://example.com/api";
+const BASE =
+  process.env.EXPO_PUBLIC_API_URL ||
+  "http://my-env.eba-hiugtrzm.ap-south-1.elasticbeanstalk.com";
 
 export const ENDPOINTS = {
-  auth: {
-    register: `${BASE}/register`,
-    login: `${BASE}/login`,
-    profile: `${BASE}/profile`,
-  },
+  register: `${BASE}/register`,
+  login: `${BASE}/login`,
+  profile: `${BASE}/profile`,
 };
 
 // ---------------------------------------------------------------------------
-// Types
+// Helpers
 // ---------------------------------------------------------------------------
-export interface RegisterPayload {
-  email: string;
-  password: string;
-}
-
-export interface ProfilePayload {
-  name: string;
-  profileImage: string | null;
-}
-
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    status: "pending" | "approved" | "rejected";
-  };
-}
+const authHeader = (token) => ({
+  headers: { Authorization: `Bearer ${token}` },
+});
 
 // ---------------------------------------------------------------------------
-// Mock helpers
+// Mock session — in-memory store for dev/testing
 // ---------------------------------------------------------------------------
-
-/** Simulates network latency so the UI behaves realistically */
-const mockDelay = (ms = 800) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * In-memory store for the mock session.
- * Holds the current user status so getUserProfile returns
- * whatever was last set — useful for testing the pending → approved flow.
- */
-const mockSession: {
-  token: string;
-  user: AuthResponse["user"];
-} = {
+const mockSession = {
   token: "mock-token-abc123",
   user: {
-    id: "mock-user-1",
+    id: "1",
     name: "",
     email: "",
-    // ✏️  Change this to "approved" or "rejected" to test those flows
-    status: "pending",
+    mobile: "",
+    status: "pending", // ✏️ change to "approved" / "rejected" to test cold-start
   },
 };
 
-// ---------------------------------------------------------------------------
-// Mock implementations
-// ---------------------------------------------------------------------------
+const mockDelay = (ms = 800) => new Promise((res) => setTimeout(res, ms));
 
 const mock = {
-  registerUser: async (data: RegisterPayload): Promise<AuthResponse> => {
+  registerUser: async (data) => {
+    await mockDelay();
+    mockSession.user.name = data.name || "";
+    mockSession.user.email = data.email || "";
+    mockSession.user.mobile = data.mobile || "";
+    mockSession.user.status = "pending";
+    return { token: mockSession.token, user: { ...mockSession.user } };
+  },
+
+  loginUser: async (data) => {
     await mockDelay();
     mockSession.user.email = data.email;
-    mockSession.user.status = "pending"; // always starts pending
-    return { ...mockSession };
+    return { token: mockSession.token, user: { ...mockSession.user } };
   },
 
-  saveUserProfile: async (
-    _token: string,
-    data: ProfilePayload,
-  ): Promise<void> => {
-    await mockDelay();
-    mockSession.user.name = data.name;
-  },
-
-  loginUser: async (data: LoginPayload): Promise<AuthResponse> => {
-    await mockDelay();
-    mockSession.user.email = data.email;
-    return { ...mockSession };
-  },
-
-  getUserProfile: async (_token: string): Promise<AuthResponse["user"]> => {
+  getUserProfile: async () => {
     await mockDelay(400);
     return { ...mockSession.user };
   },
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
+// registerUser
+//
+// Real API: POST /register  →  multipart/form-data
+//   Fields: name, email, mobile, password, photo (file)
 // ---------------------------------------------------------------------------
-const authHeader = (token: string) => ({
-  headers: { Authorization: `Bearer ${token}` },
-});
+export const registerUser = async ({
+  name,
+  email,
+  mobile,
+  password,
+  photoUri,
+}) => {
+  if (USE_MOCK) return mock.registerUser({ name, email, mobile });
 
-// ---------------------------------------------------------------------------
-// Exported API functions
-// Each one delegates to mock or real network based on USE_MOCK
-// ---------------------------------------------------------------------------
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("email", email);
+  formData.append("mobile", mobile);
+  formData.append("password", password);
 
-export const registerUser = async (
-  data: RegisterPayload,
-): Promise<AuthResponse> => {
-  if (USE_MOCK) return mock.registerUser(data);
+  if (photoUri) {
+    // React Native FormData accepts this object shape for file uploads
+    const filename = photoUri.split("/").pop();
+    const match = /\.(\w+)$/.exec(filename ?? "");
+    const type = match ? `image/${match[1]}` : "image/jpeg";
+    formData.append("photo", { uri: photoUri, name: filename, type });
+  }
+
   try {
-    const res = await axios.post(ENDPOINTS.auth.register, data);
+    const res = await axios.post(ENDPOINTS.register, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return res.data;
-  } catch (error: any) {
+  } catch (error) {
     console.error(
       "registerUser error:",
-      error?.response?.data || error.message,
+      error?.response?.data.error || error.message,
     );
     throw error;
   }
 };
 
-export const saveUserProfile = async (
-  token: string,
-  data: ProfilePayload,
-): Promise<void> => {
-  if (USE_MOCK) return mock.saveUserProfile(token, data);
-  try {
-    await axios.patch(ENDPOINTS.auth.profile, data, authHeader(token));
-  } catch (error: any) {
-    console.error(
-      "saveUserProfile error:",
-      error?.response?.data || error.message,
-    );
-    throw error;
-  }
-};
+// ---------------------------------------------------------------------------
+// loginUser
+//
+// Real API: POST /login  →  application/json
+//   Body: { email, password }
+// ---------------------------------------------------------------------------
+export const loginUser = async ({ email, password }) => {
+  if (USE_MOCK) return mock.loginUser({ email });
 
-export const loginUser = async (data: LoginPayload): Promise<AuthResponse> => {
-  if (USE_MOCK) return mock.loginUser(data);
   try {
-    const res = await axios.post(ENDPOINTS.auth.login, data);
+    const res = await axios.post(ENDPOINTS.login, { email, password });
     return res.data;
-  } catch (error: any) {
+  } catch (error) {
     console.error("loginUser error:", error?.response?.data || error.message);
     throw error;
   }
 };
 
-export const getUserProfile = async (
-  token: string,
-): Promise<AuthResponse["user"]> => {
-  if (USE_MOCK) return mock.getUserProfile(token);
+// ---------------------------------------------------------------------------
+// getUserProfile
+//
+// Real API: GET /profile  →  requires Bearer token
+// ---------------------------------------------------------------------------
+export const getUserProfile = async (token) => {
+  if (USE_MOCK) return mock.getUserProfile();
+
   try {
-    const res = await axios.get(ENDPOINTS.auth.profile, authHeader(token));
+    const res = await axios.get(ENDPOINTS.profile, authHeader(token));
     return res.data;
-  } catch (error: any) {
+  } catch (error) {
     console.error(
       "getUserProfile error:",
       error?.response?.data || error.message,
@@ -177,149 +145,12 @@ export const getUserProfile = async (
 };
 
 // ---------------------------------------------------------------------------
-// 🧪 Test helper — only use in dev/testing, never ship to production
-//
-// Call this anywhere to simulate the admin changing the approval status:
+// 🧪 Dev helper — simulate admin changing approval status
 //   import { __setMockStatus } from "@/services/api";
-//   __setMockStatus("approved");   // → pending screen will redirect to home
-//   __setMockStatus("rejected");   // → pending screen will show rejection UI
+//   __setMockStatus("approved");
 // ---------------------------------------------------------------------------
-export const __setMockStatus = (status: AuthResponse["user"]["status"]) => {
+export const __setMockStatus = (status) => {
   if (!USE_MOCK) return;
   mockSession.user.status = status;
-  console.log(`[MOCK] user status set to "${status}"`);
+  console.log(`[MOCK] status → "${status}"`);
 };
-
-// import axios from "axios";
-
-// // ---------------------------------------------------------------------------
-// // Base URL — override with EXPO_PUBLIC_API_URL env var in production
-// // ---------------------------------------------------------------------------
-// const BASE_URL = "https://example.com/api";
-// const BASE = process.env.EXPO_PUBLIC_API_URL || BASE_URL;
-
-// // ---------------------------------------------------------------------------
-// // Endpoint map (kept for reference / future use)
-// // ---------------------------------------------------------------------------
-// export const ENDPOINTS = {
-//   auth: {
-//     register: `${BASE}/register`,
-//     login: `${BASE}/login`,
-//     profile: `${BASE}/profile`,
-//   },
-// };
-
-// // ---------------------------------------------------------------------------
-// // Types
-// // ---------------------------------------------------------------------------
-// export interface RegisterPayload {
-//   email: string;
-//   password: string;
-// }
-
-// export interface ProfilePayload {
-//   name: string;
-//   profileImage: string | null;
-// }
-
-// export interface LoginPayload {
-//   email: string;
-//   password: string;
-// }
-
-// export interface AuthResponse {
-//   token: string;
-//   user: {
-//     id: string;
-//     name: string;
-//     email: string;
-//     status: "pending" | "approved" | "rejected";
-//   };
-// }
-
-// // ---------------------------------------------------------------------------
-// // Helpers
-// // ---------------------------------------------------------------------------
-
-// /**
-//  * Builds an Axios config object with the Bearer token when provided.
-//  */
-// const authHeader = (token: string) => ({
-//   headers: { Authorization: `Bearer ${token}` },
-// });
-
-// // ---------------------------------------------------------------------------
-// // Auth API calls
-// // ---------------------------------------------------------------------------
-
-// /**
-//  * Step 1 of registration — creates the account with email + password.
-//  * Returns the server response (expected to contain a token or user id).
-//  */
-// export const registerUser = async (
-//   data: RegisterPayload,
-// ): Promise<AuthResponse> => {
-//   try {
-//     const response = await axios.post(ENDPOINTS.auth.register, data);
-//     return response.data;
-//   } catch (error: any) {
-//     console.error(
-//       "registerUser error:",
-//       error?.response?.data || error.message,
-//     );
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Step 2 of registration — saves the profile (name + image) for an
-//  * already-created account.  Requires the auth token returned by registerUser.
-//  */
-// export const saveUserProfile = async (
-//   token: string,
-//   data: ProfilePayload,
-// ): Promise<void> => {
-//   try {
-//     // Re-uses the /profile endpoint with a PATCH so the server merges the fields
-//     await axios.patch(ENDPOINTS.auth.profile, data, authHeader(token));
-//   } catch (error: any) {
-//     console.error(
-//       "saveUserProfile error:",
-//       error?.response?.data || error.message,
-//     );
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Logs an existing user in.
-//  * Returns the auth token + user object (including approval status).
-//  */
-// export const loginUser = async (data: LoginPayload): Promise<AuthResponse> => {
-//   try {
-//     const response = await axios.post(ENDPOINTS.auth.login, data);
-//     return response.data;
-//   } catch (error: any) {
-//     console.error("loginUser error:", error?.response?.data || error.message);
-//     throw error;
-//   }
-// };
-
-// /**
-//  * Fetches the current user's profile + approval status.
-//  * Used by the Pending screen to poll for admin approval.
-//  */
-// export const getUserProfile = async (
-//   token: string,
-// ): Promise<AuthResponse["user"]> => {
-//   try {
-//     const response = await axios.get(ENDPOINTS.auth.profile, authHeader(token));
-//     return response.data;
-//   } catch (error: any) {
-//     console.error(
-//       "getUserProfile error:",
-//       error?.response?.data || error.message,
-//     );
-//     throw error;
-//   }
-// };

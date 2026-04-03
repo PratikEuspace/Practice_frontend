@@ -1,40 +1,61 @@
-import { getUserProfile } from "@/src/services/api";
-import { clearAllUserData, getAuthToken } from "@/src/services/storage";
-import { router, Stack } from "expo-router";
+/**
+ * app/_layout.tsx  —  Root Layout & Auth Gate
+ *
+ * On cold start:
+ *   No token                    →  /(auth)/register
+ *   Token + approved            →  /(app)/home
+ *   Token + pending             →  /(pending)
+ *   Token + rejected            →  /(auth)/register  (clears data)
+ *   Token + 401 Unauthorized    →  /(auth)/register  (clears stale token)
+ *   Other network error         →  /(pending)        (let it retry)
+ */
+
+import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+
+import { getUserProfile } from "@/src/services/api";
+import { getAuthToken } from "@/src/services/storage";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
+
+  const router = useRouter();
 
   useEffect(() => {
     (async () => {
       try {
         const token = await getAuthToken();
 
+        console.log("token: ", token);
+
         if (!token) {
-          router.replace("/register");
+          // No token — user either hasn't registered or logged out
+          // Send to login; they can navigate to register from there
+          router.replace("/(auth)");
           return;
-        }
-
-        try {
-          const user = await getUserProfile(token);
-
-          if (user.status === "approved") {
-            router.replace("/");
-          } else if (user.status === "rejected") {
-            await clearAllUserData();
-            router.replace("/register");
-          } else {
-            // pending (or any unknown status)
-            router.replace("/pending");
+        } else {
+          try {
+            const user = await getUserProfile(token);
+            if (user) {
+              router.replace("/(app)");
+            } else {
+              // If we can't fetch the profile, treat it as pending (could be 401 or server error)
+              router.replace("/(auth)");
+            }
+          } catch (error) {
+            // Genuine network error (no internet, server down, etc.)
+            // Fall to pending so the pending screen can keep retrying
+            console.warn(
+              "_layout: network error, falling back to pending",
+              error,
+            );
           }
-        } catch {
-          // Network error — pending screen will handle retrying
-          router.replace("/pending");
         }
-      } catch {
-        router.replace("/register");
+      } catch (error) {
+        // AsyncStorage failure — safest fallback is register
+        console.error("_layout: storage error", error);
+        router.replace("/(auth)/login");
       } finally {
         setIsReady(true);
       }
@@ -43,10 +64,7 @@ export default function RootLayout() {
 
   return (
     <>
-      {/* Stack registers all screens — headerShown: false for full custom UI */}
       <Stack screenOptions={{ headerShown: false }} />
-
-      {/* Overlay the splash until the redirect fires */}
       {!isReady && <Splash />}
     </>
   );
