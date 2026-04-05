@@ -98,11 +98,8 @@ export const registerUser = async ({
     });
     return res.data;
   } catch (error) {
-    console.error(
-      "registerUser error:",
-      error?.response?.data.error || error.message,
-    );
-    throw error;
+    const errorMessage = error?.response?.data.error || error.message;
+    throw new Error(errorMessage);
   }
 };
 
@@ -119,8 +116,8 @@ export const loginUser = async ({ email, password }) => {
     const res = await axios.post(ENDPOINTS.login, { email, password });
     return res.data;
   } catch (error) {
-    console.error("loginUser error:", error?.response?.data || error.message);
-    throw error;
+    const errorMessage = error?.response?.data.error || error.message;
+    throw new Error(errorMessage);
   }
 };
 

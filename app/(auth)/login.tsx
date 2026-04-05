@@ -66,24 +66,18 @@ export default function LoginScreen() {
       await saveAuthToken(response.token);
 
       const userInfo = await getUserProfile(response.token);
-      console.log("userInfo: ", userInfo);
 
       await saveUserData({
         username: userInfo.user?.name || "",
         email: userInfo.user?.email || email,
         mobile: userInfo.user?.mobile || "",
+        photo_url: userInfo.user?.photo_url || null,
       });
 
       router.replace("/(app)");
     } catch (err) {
-      console.error("Login failed:", err);
-      Alert.alert(
-        "Login Failed",
-        err?.response?.data?.message ||
-          err?.response?.data?.error ||
-          err?.message ||
-          "Invalid email or password.",
-      );
+      console.error("Login failed:", err.message);
+      Alert.alert("Login Failed", err.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }

@@ -14,13 +14,7 @@
 import { clearAllUserData } from "@/src/services/storage";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const POLL_INTERVAL_MS = 5000;
@@ -42,7 +36,7 @@ export default function PendingScreen() {
   // ── Status config ─────────────────────────────────────────────────────────
   const getStatusContent = () => {
     switch (status) {
-      case "approved":
+      case "pending":
         return {
           emoji: "⏳",
           title: "Pending Approval",
@@ -65,7 +59,7 @@ export default function PendingScreen() {
           emoji: null,
           title: "Awaiting Approval",
           subtext:
-            "Your account is being reviewed by our admin team. We'll update this screen once a decision is made.",
+            "Your account is being reviewed by our admin team. Try to login after some time.",
           color: "#E91E63",
           bgColor: "#FFF0F5",
         };
@@ -79,17 +73,8 @@ export default function PendingScreen() {
       style={[styles.safeArea, { backgroundColor: content.bgColor }]}
     >
       <View style={styles.container}>
-        {/* Icon / Spinner */}
         <View style={styles.iconBlock}>
-          {status === "pending" ? (
-            <ActivityIndicator
-              size="large"
-              color={content.color}
-              style={styles.spinner}
-            />
-          ) : (
-            <Text style={styles.emoji}>{content.emoji}</Text>
-          )}
+          <Text style={styles.emoji}>{content.emoji}</Text>
         </View>
 
         {/* Text */}
