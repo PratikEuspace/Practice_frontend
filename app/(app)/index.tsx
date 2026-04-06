@@ -1,28 +1,19 @@
 /**
- * app/(app)/home.jsx
+ * app/(app)/index.tsx
  *
- * Home / Account Settings screen for approved users.
- * Shows stored profile info and lets the user update name and password.
+ * Home / Profile screen for approved users.
+ * Shows stored profile info and a logout button.
  */
 import ProfileImage from "@/src/components/ProfileImage";
-import {
-  clearAllUserData,
-  getAuthToken,
-  getUserData,
-  saveUserData,
-} from "@/src/services/storage";
+import { clearAllUserData, getUserData } from "@/src/services/storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -37,26 +28,8 @@ export default function HomeScreen() {
     mobile: "",
   });
 
-  // ── Modals ────────────────────────────────────────────────────────────────
-  const [isUsernameModalVisible, setUsernameModalVisible] = useState(false);
-  const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
-
-  // ── Form state ────────────────────────────────────────────────────────────
-  const [tempUsername, setTempUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const token = await getAuthToken();
-      if (!token) {
-        // No token — user either hasn't registered or logged out
-        // Send to login; they can navigate to register from there
-        router.replace("/(auth)/login");
-        return;
-      }
-
       const data = await getUserData();
       if (data) {
         setUserData({
@@ -68,41 +41,6 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const updateAndSave = async (newData, successMessage) => {
-    const updated = { ...userData, ...newData };
-    setUserData(updated);
-    const saved = await saveUserData(updated);
-    if (saved) Alert.alert("Success", successMessage);
-    else Alert.alert("Error", "Failed to save. Please try again.");
-  };
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleUpdateUsername = () => {
-    if (!tempUsername.trim()) {
-      Alert.alert("Error", "Name cannot be empty.");
-      return;
-    }
-    updateAndSave({ username: tempUsername.trim() }, "Name updated!");
-    setUsernameModalVisible(false);
-  };
-
-  const handleUpdatePassword = () => {
-    if (newPassword.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match.");
-      return;
-    }
-    // Note: password change would need its own API endpoint in production
-    Alert.alert("Updated", "Password updated locally.");
-    setPasswordModalVisible(false);
-    setNewPassword("");
-    setConfirmPassword("");
-  };
-
   const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
@@ -111,304 +49,141 @@ export default function HomeScreen() {
         style: "destructive",
         onPress: async () => {
           await clearAllUserData();
-          router.replace("/");
+          router.replace("/(auth)");
         },
       },
     ]);
   };
 
-  // ── UI ────────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="log-out-outline" size={20} color="#E91E63" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Avatar */}
-        <ProfileImage />
+        <ProfileImage preventEdit />
+
+        {/* Name */}
         <Text style={styles.usernameHeader}>{userData.username}</Text>
-        {!!userData.email && (
-          <Text style={styles.metaText}>{userData.email}</Text>
-        )}
-        {!!userData.mobile && (
-          <Text style={styles.metaText}>{userData.mobile}</Text>
-        )}
 
-        {/* Settings */}
-        <View style={styles.optionsContainer}>
-          <Text style={styles.sectionTitle}>Account Settings</Text>
+        {/* Details card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Account Details</Text>
 
-          {/* Change Name */}
-          <TouchableOpacity
-            style={styles.optionCard}
-            onPress={() => {
-              setTempUsername(userData.username);
-              setUsernameModalVisible(true);
-            }}
-          >
-            <View style={styles.optionRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="person-outline" size={24} color="#E91E63" />
-              </View>
-              <Text style={styles.optionText}>Change Name</Text>
+          <View style={styles.row}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="mail-outline" size={20} color="#E91E63" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#CCC" />
-          </TouchableOpacity>
-
-          {/* Change Photo */}
-          <TouchableOpacity
-            style={styles.optionCard}
-            onPress={() =>
-              Alert.alert(
-                "Tip",
-                "Tap directly on your avatar above to update your profile photo!",
-              )
-            }
-          >
-            <View style={styles.optionRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="image-outline" size={24} color="#E91E63" />
-              </View>
-              <Text style={styles.optionText}>Change Profile Photo</Text>
+            <View>
+              <Text style={styles.rowLabel}>Email</Text>
+              <Text style={styles.rowValue}>{userData.email || "—"}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#CCC" />
-          </TouchableOpacity>
+          </View>
 
-          {/* Change Password */}
-          <TouchableOpacity
-            style={[styles.optionCard, { borderBottomWidth: 0 }]}
-            onPress={() => setPasswordModalVisible(true)}
-          >
-            <View style={styles.optionRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={24}
-                  color="#E91E63"
-                />
-              </View>
-              <Text style={styles.optionText}>Change Password</Text>
+          <View style={styles.divider} />
+
+          <View style={styles.row}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="call-outline" size={20} color="#E91E63" />
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#CCC" />
+            <View>
+              <Text style={styles.rowLabel}>Mobile</Text>
+              <Text style={styles.rowValue}>{userData.mobile || "—"}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Header */}
+        <View style={styles.footerRow}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#E91E63" />
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* ── Change Name Modal ── */}
-      <Modal visible={isUsernameModalVisible} animationType="fade" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Update Name</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={tempUsername}
-              onChangeText={setTempUsername}
-              placeholder="Enter new name"
-              autoFocus
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setUsernameModalVisible(false)}
-              >
-                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSave]}
-                onPress={handleUpdateUsername}
-              >
-                <Text style={styles.modalButtonTextSave}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ── Change Password Modal ── */}
-      <Modal visible={isPasswordModalVisible} animationType="fade" transparent>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Update Password</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="New password (min 6 chars)"
-              secureTextEntry
-              textContentType="oneTimeCode"
-            />
-            <TextInput
-              style={styles.modalInput}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm new password"
-              secureTextEntry
-              textContentType="oneTimeCode"
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => {
-                  setPasswordModalVisible(false);
-                  setNewPassword("");
-                  setConfirmPassword("");
-                }}
-              >
-                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSave]}
-                onPress={handleUpdatePassword}
-              >
-                <Text style={styles.modalButtonTextSave}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FAFAFA" },
-  scrollContent: { padding: 24, paddingBottom: 48 },
-  headerRow: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    flexDirection: "row",
-    justifyContent: "flex-start",
-  },
-  logoutButton: {
-    flexDirection: "row",
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 48,
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: "#FCE4EC",
-  },
-  logoutText: {
-    color: "#E91E63",
-    fontWeight: "600",
-    marginLeft: 6,
-    fontSize: 14,
   },
   usernameHeader: {
     fontSize: 26,
     fontWeight: "bold",
     color: "#1A1A2E",
     textAlign: "center",
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 12,
+    marginBottom: 28,
   },
-  metaText: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
-    marginBottom: 2,
-  },
-  optionsContainer: {
+  card: {
+    width: "100%",
     backgroundColor: "#FFF",
     borderRadius: 16,
-    padding: 8,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 3,
-    marginTop: 28,
   },
-  sectionTitle: {
+  cardTitle: {
     fontSize: 12,
     fontWeight: "700",
     color: "#AAAAAA",
     textTransform: "uppercase",
     letterSpacing: 1.2,
-    marginBottom: 12,
-    marginTop: 8,
-    marginLeft: 12,
+    marginBottom: 16,
+    marginLeft: 4,
   },
-  optionCard: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
   },
-  optionRow: { flexDirection: "row", alignItems: "center" },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#FCE4EC",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 14,
   },
-  optionText: { fontSize: 16, color: "#333", fontWeight: "600" },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
+  rowLabel: {
+    fontSize: 12,
+    color: "#AAAAAA",
+    fontWeight: "600",
+    marginBottom: 2,
   },
-  modalContent: {
-    width: "85%",
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    padding: 24,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    marginBottom: 20,
-    color: "#1A1A2E",
-    textAlign: "center",
-  },
-  modalInput: {
-    backgroundColor: "#F7F7F9",
-    borderWidth: 1.5,
-    borderColor: "#E8E8EE",
-    borderRadius: 12,
-    padding: 15,
+  rowValue: {
     fontSize: 16,
-    marginBottom: 14,
     color: "#1A1A2E",
+    fontWeight: "600",
   },
-  modalActions: {
+  divider: {
+    height: 1,
+    backgroundColor: "#F5F5F5",
+    marginHorizontal: 4,
+  },
+
+  logoutButton: {
+    marginTop: 40,
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 6,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
     alignItems: "center",
+    padding: 10,
   },
-  modalButtonCancel: { backgroundColor: "#F5F5F5", marginRight: 8 },
-  modalButtonSave: { backgroundColor: "#E91E63", marginLeft: 8 },
-  modalButtonTextCancel: { color: "#666", fontWeight: "600", fontSize: 16 },
-  modalButtonTextSave: { color: "#FFF", fontWeight: "600", fontSize: 16 },
+  logoutText: {
+    color: "#FF5252", // A slightly more "urgent" red
+    fontWeight: "600",
+    marginLeft: 6,
+    fontSize: 15,
+  },
 });

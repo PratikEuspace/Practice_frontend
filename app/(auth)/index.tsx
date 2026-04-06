@@ -113,11 +113,11 @@ export default function RegisterScreen() {
       // Move to Step 2: profile setup
       router.replace("/(pending)");
     } catch (err) {
-      console.error("Registration failed:", err);
+      console.error("Registration failed:", err.message);
 
       Alert.alert(
         "Registration Error",
-        err.error || "Unable to register. Please try again.",
+        err.message || "Unable to register. Please try again.",
       );
     } finally {
       setLoading(false);

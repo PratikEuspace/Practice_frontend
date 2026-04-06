@@ -5,7 +5,7 @@
  * POST /login  →  { token, user }  →  save token  →  /(app)/home
  */
 import { getUserProfile, loginUser } from "@/src/services/api";
-import { saveAuthToken, saveUserData } from "@/src/services/storage";
+import { saveAuthToken, saveImage, saveUserData } from "@/src/services/storage";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -66,7 +66,6 @@ export default function LoginScreen() {
       await saveAuthToken(response.token);
 
       const userInfo = await getUserProfile(response.token);
-      console.log("userInfo: ", userInfo);
 
       await saveUserData({
         username: userInfo.user?.name || "",
@@ -74,16 +73,12 @@ export default function LoginScreen() {
         mobile: userInfo.user?.mobile || "",
       });
 
+      saveImage(userInfo.user?.photo_url || null);
+
       router.replace("/(app)");
     } catch (err) {
-      console.error("Login failed:", err);
-      Alert.alert(
-        "Login Failed",
-        err?.response?.data?.message ||
-          err?.response?.data?.error ||
-          err?.message ||
-          "Invalid email or password.",
-      );
+      console.error("Login failed:", err.message);
+      Alert.alert("Login Failed", err.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }

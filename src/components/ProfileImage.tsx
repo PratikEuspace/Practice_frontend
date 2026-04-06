@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -12,8 +12,8 @@ import { getImage, saveImage } from "@/src/services/storage";
 import { pickImage } from "@/src/utils/imagePicker";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function ProfileImage() {
-  const [imageUri, setImageUri] = useState<string | null>(null);
+export default function ProfileImage({ preventEdit = false }) {
+  const [imageUri, setImageUri] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Step 5: Read stored data immediately upon render mount
@@ -35,6 +35,8 @@ export default function ProfileImage() {
    * and subsequently pushes to the abstracted AsyncStorage pipe.
    */
   const handlePickImage = async () => {
+    if (preventEdit) return; // Disable editing if prop is set
+
     const uri = await pickImage();
     if (uri) {
       setImageUri(uri); // Update UI Instantly
@@ -44,10 +46,14 @@ export default function ProfileImage() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
+      <Pressable
         onPress={handlePickImage}
-        activeOpacity={0.8}
-        style={styles.imageWrapper}
+        style={({ pressed }) => [
+          styles.imageWrapper,
+          !preventEdit && {
+            opacity: pressed ? 0.8 : 1,
+          },
+        ]}
       >
         {loading ? (
           <ActivityIndicator color="#E91E63" />
@@ -55,11 +61,17 @@ export default function ProfileImage() {
           <Image source={{ uri: imageUri }} style={styles.image} />
         ) : (
           <View style={styles.placeholder}>
-            <Ionicons name="camera-outline" size={32} color="#888" />
-            <Text style={styles.placeholderText}>Tap to add</Text>
+            {preventEdit ? (
+              <Ionicons name="person-outline" size={32} color="#888" />
+            ) : (
+              <>
+                <Ionicons name="camera-outline" size={32} color="#888" />
+                <Text style={styles.placeholderText}>Tap to add</Text>
+              </>
+            )}
           </View>
         )}
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

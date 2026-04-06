@@ -15,7 +15,13 @@ import { useEffect, useState } from "react";
 
 import { getUserProfile } from "@/src/services/api";
 import { getAuthToken } from "@/src/services/storage";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -26,8 +32,6 @@ export default function RootLayout() {
     (async () => {
       try {
         const token = await getAuthToken();
-
-        console.log("token: ", token);
 
         if (!token) {
           // No token — user either hasn't registered or logged out
@@ -65,6 +69,7 @@ export default function RootLayout() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
+      <StatusBar barStyle="dark-content" />
       {!isReady && <Splash />}
     </>
   );
