@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Practice_frontend",
+    "name": "Euspace Tech",
     "slug": "Practice_frontend",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,14 +10,15 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anilrkhairnar.Practice-frontend"
+      "bundleIdentifier": "com.anilrkhairnar.Practice-frontend",
+      "icon": {
+        "light": "./assets/images/ios-light.png"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

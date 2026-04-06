@@ -5,7 +5,7 @@
  * POST /login  →  { token, user }  →  save token  →  /(app)/home
  */
 import { getUserProfile, loginUser } from "@/src/services/api";
-import { saveAuthToken, saveUserData } from "@/src/services/storage";
+import { saveAuthToken, saveImage, saveUserData } from "@/src/services/storage";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -71,8 +71,9 @@ export default function LoginScreen() {
         username: userInfo.user?.name || "",
         email: userInfo.user?.email || email,
         mobile: userInfo.user?.mobile || "",
-        photo_url: userInfo.user?.photo_url || null,
       });
+
+      saveImage(userInfo.user?.photo_url || null);
 
       router.replace("/(app)");
     } catch (err) {
