@@ -49,6 +49,9 @@ export default function RegisterScreen() {
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
     let isValid = true;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     const e = {
       name: "",
       email: "",
@@ -62,7 +65,7 @@ export default function RegisterScreen() {
       isValid = false;
     }
 
-    if (!email.trim() || !email.includes("@")) {
+    if (!email.trim() || !emailRegex.test(email)) {
       e.email = "Enter a valid email address";
       isValid = false;
     }
